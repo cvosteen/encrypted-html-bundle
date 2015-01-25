@@ -1,6 +1,19 @@
-#!python3
-
+from __future__ import unicode_literals
 import base64, os.path, sys
+
+# Python 2/3 compatibility
+if sys.version_info[0] == 2:
+	input = raw_input
+	str = unicode
+
+	old_bytes = bytes
+	def new_bytes(s, enc=None):
+		if enc: 
+			return bytearray(s, enc)
+		else:
+			return bytearray(s)
+	bytes = new_bytes
+
 
 # Galois Field Operations
 
@@ -17,8 +30,8 @@ def GF_Double(n):
 	return n << 1 if n < 128 else (n << 1) ^ 0x11B
 
 
-rcon = [0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d,
-	0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5]
+rcon = bytes([0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d,
+	0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5])
 
 
 def GF_Multiply(a, b):
@@ -35,7 +48,7 @@ def GF_Multiply(a, b):
 		a >>= 1
 	return accum
 
-sbox = [
+sbox = bytes([
 	0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
 	0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
 	0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
@@ -52,7 +65,7 @@ sbox = [
 	0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
 	0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
 	0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
-	]
+	])
 
 # Operations needed for Key Expansion
 
@@ -63,7 +76,7 @@ def addBytes(a, b):
 	will be returned.  The longer of the two lists, if any will
 	be truncated.
 	'''
-	return [a[i] ^ b[i] for i in range(min(len(a), len(b)))] 
+	return bytes(a[i] ^ b[i] for i in range(min(len(a), len(b)))) 
 
 
 def rotate_bytes(b, reps = 1):
@@ -88,10 +101,10 @@ def keyExpansion(key):
 	max_bytes = 240
 	block_size = len(key) 
 	expon_iter = 1
-	exkey = key
+	exkey = bytearray(key)
 
 	while len(exkey) < max_bytes:
-		temp = [sbox[b] for b in rotate_bytes(exkey[-4:])]
+		temp = bytearray(sbox[b] for b in rotate_bytes(exkey[-4:]))
 		temp[0] ^= rcon[expon_iter]
 		expon_iter += 1
 		exkey += addBytes(temp, exkey[-block_size:])
@@ -115,7 +128,7 @@ def transpose(block):
 	Given a 4x4 block of bytes, transpose from row order first
 	to column order first.
 	'''
-	result = [0] * 16
+	result = bytearray([0] * 16)
 	for col in range(4):
 		for row in range(4):
 			result[(4*row) + col] = block[(4*col) + row]
@@ -133,19 +146,18 @@ def mixColumn(a):
 	[ b3 ]   [ 3 1 1 2 ][ a3 ]
 
 	'''
-	b = [0, 0, 0, 0]
-	b[0] = GF_Multiply(2, a[0]) ^ GF_Multiply(3, a[1]) ^ a[2] ^ a[3]
-	b[1] = a[0] ^ GF_Multiply(2, a[1]) ^ GF_Multiply(3, a[2]) ^ a[3]
-	b[2] = a[0] ^ a[1] ^ GF_Multiply(2, a[2]) ^ GF_Multiply(3, a[3])
-	b[3] = GF_Multiply(3, a[0]) ^ a[1] ^ a[2] ^ GF_Multiply(2, a[3])
-
-	return b
+	return bytes([
+		GF_Multiply(2, a[0]) ^ GF_Multiply(3, a[1]) ^ a[2] ^ a[3],
+		a[0] ^ GF_Multiply(2, a[1]) ^ GF_Multiply(3, a[2]) ^ a[3],
+		a[0] ^ a[1] ^ GF_Multiply(2, a[2]) ^ GF_Multiply(3, a[3]),
+		GF_Multiply(3, a[0]) ^ a[1] ^ a[2] ^ GF_Multiply(2, a[3])
+	])
 
 
 # Main Steps for Encryption
 
 def subBytes(state):
-	return [sbox[b] for b in state]
+	return bytes(sbox[b] for b in state)
 
 def shiftRows(state):
 	return               state[ 0: 4] + \
@@ -165,18 +177,18 @@ def mixColumns(state):
 # Encryption
 
 def encrypt_data(data, key):
-	'''Encrypts a list of numbers (0 - 255)'''
+	'''Encrypts data with the given key.  Parameters and return value are bytes.'''
 	num_rounds = 14
-	cipher_data = []
+	cipher_data = bytearray()
 
 	exkey = keyExpansion(key)
 
-	cbc = [0] * 16
+	cbc = bytes([0] * 16)
 
 	for offset in range((len(data)+15)//16):
 		state = data[offset*16:offset*16 + 16]
 		if len(state) < 16:
-			state += [0] * (16 - len(state))
+			state += bytearray([0] * (16 - len(state)))
 		state = addBytes(cbc, state)
 
 		# Initial Round
@@ -195,43 +207,28 @@ def encrypt_data(data, key):
 		cipher_data += state
 		cbc = state
 
-	return cipher_data
-
-
-def encrypt(s, key):
-	'''Encrypts bytes'''
-	return bytes(encrypt_data([b for b in s], [b for b in key]))
-
-def inject(template, data):
-	offset = template.find(b'%%')
-	return template[:offset] + data + template[offset+2:]
-
+	return bytes(cipher_data)
 
 def embed_in_html(data, data_len, output_filename, template_file, html_file):
 	'''Takes encrypted data and embeds it in the self-decrypting html file'''
-	data_offset = 262
-	data_len_offset = 486 
-	filename_offset = -38
 	i = open(template_file, 'rb')
 	o = open(html_file, 'wb')
 	
-	template = i.read()
+	template = str(i.read(), 'utf-8')
 	i.close()
 
-	template = inject(template, base64.b64encode(data))
-	template = inject(template, bytes(str(data_len),'ascii'))
-	template = inject(template, output_filename)
-	template = inject(template, output_filename)
-	o.write(template)
+	template %= (str(base64.b64encode(data), 'utf-8'), data_len, output_filename, output_filename)
+	o.write(bytes(template, 'utf-8'))
 	o.close()
 
 
 if __name__ == '__main__':
+
 	if len(sys.argv) < 2:
 		print("USAGE:\n\npython encrypt_html.py <filename>\n")
 		sys.exit()
+	input_filename = sys.argv[1]
 
-	input_filename = bytes(sys.argv[1], 'utf-8')
 	password = bytes(input('Password: '), 'ascii')
 
 	# Always make the key 256 bytes (Hashing might be a better solution in a future release)
@@ -240,11 +237,11 @@ if __name__ == '__main__':
 		key += b'\0' * (32 - len(key))
 	
 	i = open(input_filename, 'rb')
-	data = i.read()
+	data = bytes(i.read())
 	i.close()
 
 	print('Encrypting...')
-	encrypted = encrypt(data, key)
+	encrypted = encrypt_data(data, key)
 
 	current_path = os.path.dirname(os.path.realpath(sys.argv[0]))
 	template_file = os.path.join(current_path, 'template.html')
