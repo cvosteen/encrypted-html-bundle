@@ -7,14 +7,14 @@ function decrypt_action() {
 	document.getElementById('download-link').style.display = 'none';
 
 	/* Decrypt the data */
-	var data = "%%";
+	var data = "%s";
 	data = atob(data);
 
 	var key = document.getElementById('key').value;
 	if(key.length > 32) { key = key.substring(0, 32); }
 	while(key.length < 32) { key = key + '\0'; }
 
-	data = decrypt_strings(data, key).slice(0, %%);
+	data = decrypt_strings(data, key).slice(0, %d);
 
 	/* Generate and show the download link */
 	if(is_ie_user()) {
@@ -45,7 +45,7 @@ function is_ie_user() {
 }
 
 function ie_download() {
-	window.navigator.msSaveOrOpenBlob(download_blob, '%%');
+	window.navigator.msSaveOrOpenBlob(download_blob, '%s');
 }
 
 /***************************************/
@@ -270,7 +270,7 @@ function decrypt_strings(data, key) {
 <input type="submit" value="Decrypt!" onclick="decrypt_action()" />
 
 <p>
-<a id="download-link" style="display: none;" href="" download="%%">Download</a>
+<a id="download-link" style="display: none;" href="" download="%s">Download</a>
 <a id="ie-download-link" style="display: none;" href="" onclick="ie_download();">Download</a>
 </p>
 </body>
